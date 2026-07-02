@@ -25,6 +25,7 @@
     <a href="{{ url_for('tasks.dashboard') }}">Dashboard</a>
     <a href="{{ url_for('tasks.new_task') }}">+ Tugas Baru</a>
     <a href="{{ url_for('materials.index') }}">📚 Materi</a>
+    {% if config.ARCHIVE_ROOT %}<a href="{{ url_for('archive.index') }}">📂 Arsip</a>{% endif %}
     <a href="{{ url_for('auth.profile') }}">Profil</a>
     <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
     <a href="{{ url_for('auth.logout') }}" style="color: var(--red)">Keluar</a>

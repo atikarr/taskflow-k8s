@@ -29,8 +29,10 @@ services:
       MYSQL_PASSWORD: taskflow123
       MYSQL_DB: taskflow
       SECRET_KEY: dev-secret-change-in-production
+      ARCHIVE_ROOT: /archive
     volumes:
       - uploads_data:/app/uploads
+      - "D:/SEMESTER 4:/archive:ro"     # arsip semester, read-only
     depends_on:
       db:
         condition: service_healthy
