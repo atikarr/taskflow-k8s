@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskflow-mysql
+  namespace: taskflow
+spec:
+  type: ClusterIP           # hanya bisa diakses dari dalam cluster
+  selector:
+    app: taskflow-mysql
+  ports:
+  - port: 3306
+    targetPort: 3306

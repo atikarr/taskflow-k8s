@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{% if action == 'edit' %}Edit Tugas{% else %}Tugas Baru{% endif %} — TaskFlow K8s{% endblock %}
+{% block content %}
+<div style="padding-top: 20px; max-width: 600px; margin: 0 auto">
+
+  <div class="page-header">
+    <div class="page-title">{% if action == 'edit' %}✏ Edit Tugas{% else %}+ Tugas Baru{% endif %}</div>
+    <a href="{{ url_for('tasks.dashboard') }}" class="btn btn-secondary">← Kembali</a>
+  </div>
+
+  <div class="card">
+    <form method="POST">
+      <div class="form-group">
+        <label>Judul Tugas *</label>
+        <input type="text" name="title" placeholder="Contoh: Buat laporan praktikum jaringan"
+          value="{{ task.title if task else '' }}" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label>Deskripsi</label>
+        <textarea name="description" placeholder="Jelaskan detail tugas ini...">{{ task.description if task else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Mata Kuliah / Kategori</label>
+        <input type="text" name="course" placeholder="Contoh: Keamanan Komputasi Awan"
+          value="{{ task.course if task and task.course else '' }}" list="courseList">
+        <datalist id="courseList">
+          <option value="Keamanan Komputasi Awan">
+          <option value="Jaringan Komputer">
+          <option value="Pemrograman Web">
+          <option value="Basis Data">
+          <option value="Kriptografi">
+        </datalist>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+        <div class="form-group">
+          <label>Prioritas</label>
+          <select name="priority">
+            <option value="low" {% if task and task.priority == 'low' %}selected{% endif %}>⚪ Rendah</option>
+            <option value="medium" {% if not task or task.priority == 'medium' %}selected{% endif %}>🟡 Sedang</option>
+            <option value="high" {% if task and task.priority == 'high' %}selected{% endif %}>🔴 Tinggi</option>
+          </select>
+        </div>
+
+        {% if action == 'edit' %}
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status">
+            <option value="todo" {% if task.status == 'todo' %}selected{% endif %}>To Do</option>
+            <option value="in_progress" {% if task.status == 'in_progress' %}selected{% endif %}>In Progress</option>
+            <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
+          </select>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Deadline</label>
+        <input type="date" name="deadline"
+          value="{{ task.deadline.strftime('%Y-%m-%d') if task and task.deadline else '' }}">
+      </div>
+
+      {% if users %}
+      <div class="form-group">
+        <label>Assign ke (opsional)</label>
+        <select name="assigned_to">
+          <option value="">-- Tidak di-assign --</option>
+          {% for user in users %}
+          <option value="{{ user.id }}"
+            {% if task and task.assigned_to == user.id %}selected{% endif %}>
+            {{ user.username }} ({{ user.email }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div style="display: flex; gap: 10px; margin-top: 8px">
+        <button type="submit" class="btn btn-primary">
+          {% if action == 'edit' %}Simpan Perubahan{% else %}Buat Tugas{% endif %}
+        </button>
+        <a href="{{ url_for('tasks.dashboard') }}" class="btn btn-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

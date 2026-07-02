@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — TaskFlow K8s{% endblock %}
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-top: 16px">
+  <div class="stat-card"><div class="stat-num" style="color: var(--blue)" id="statTotal">–</div><div class="stat-label">Total Tugas</div></div>
+  <div class="stat-card"><div class="stat-num" style="color: var(--green)" id="statCompletion">–</div><div class="stat-label">Persen Selesai</div></div>
+  <div class="stat-card"><div class="stat-num" style="color: var(--red)" id="statOverdue">–</div><div class="stat-label">Overdue</div></div>
+  <div class="stat-card"><div class="stat-num" style="color: var(--yellow)" id="statInProgress">–</div><div class="stat-label">In Progress</div></div>
+</div>
+
+<!-- Charts -->
+<div class="charts-row">
+  <div class="chart-card"><h4>Status Tugas</h4><div class="chart-wrap"><canvas id="chartStatus"></canvas></div></div>
+  <div class="chart-card"><h4>Prioritas</h4><div class="chart-wrap"><canvas id="chartPriority"></canvas></div></div>
+  <div class="chart-card"><h4>Per Mata Kuliah</h4><div class="chart-wrap"><canvas id="chartCourse"></canvas></div></div>
+</div>
+
+<!-- Toolbar -->
+<div class="page-header">
+  <div class="page-title">Kanban Board
+    <span class="sync-text" style="margin-left: 10px"><span class="sync-dot"></span>sinkron otomatis <span id="lastSync"></span></span>
+  </div>
+  <a href="{{ url_for('tasks.new_task') }}" class="btn btn-primary">+ Tugas Baru</a>
+</div>
+
+<div class="toolbar">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Cari judul atau deskripsi tugas...">
+  </div>
+  <select id="courseFilter">
+    <option value="">Semua Matkul</option>
+    {% for course in courses %}
+    <option value="{{ course }}">{{ course }}</option>
+    {% endfor %}
+  </select>
+  <select id="priorityFilter">
+    <option value="">Semua Prioritas</option>
+    <option value="high">🔴 Tinggi</option>
+    <option value="medium">🟡 Sedang</option>
+    <option value="low">⚪ Rendah</option>
+  </select>
+</div>
+
+<!-- Kanban -->
+<div class="kanban">
+  <div class="kanban-col" data-status="todo">
+    <div class="kanban-col-header">
+      <span class="kanban-col-title">📋 To Do</span>
+      <span class="kanban-count" id="count-todo">0</span>
+    </div>
+    <div class="kanban-cards" id="col-todo"></div>
+  </div>
+  <div class="kanban-col" data-status="in_progress">
+    <div class="kanban-col-header">
+      <span class="kanban-col-title">⚡ In Progress</span>
+      <span class="kanban-count" id="count-in_progress">0</span>
+    </div>
+    <div class="kanban-cards" id="col-in_progress"></div>
+  </div>
+  <div class="kanban-col" data-status="done">
+    <div class="kanban-col-header">
+      <span class="kanban-col-title">✅ Done</span>
+      <span class="kanban-count" id="count-done">0</span>
+    </div>
+    <div class="kanban-cards" id="col-done"></div>
+  </div>
+</div>
+
+<!-- Modal Komentar -->
+<div class="modal-overlay" id="commentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="commentModalTitle">Komentar</span>
+      <button class="modal-close" onclick="closeComments()">×</button>
+    </div>
+    <div class="modal-body" id="commentList"></div>
+    <div class="modal-footer">
+      <input type="text" id="commentInput" placeholder="Tulis komentar..." onkeydown="if(event.key==='Enter')sendComment()">
+      <button class="btn btn-primary btn-sm" onclick="sendComment()">Kirim</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+let allTasks = [];
+let lastDataHash = "";
+let currentCommentTaskId = null;
+const POLL_INTERVAL = 10000; // 10 detik — real-time antar user
+
+// ================= FETCH & RENDER =================
+
+function filterParams() {
+  const p = new URLSearchParams();
+  const q = document.getElementById('searchInput').value.trim();
+  const course = document.getElementById('courseFilter').value;
+  const priority = document.getElementById('priorityFilter').value;
+  if (q) p.set('q', q);
+  if (course) p.set('course', course);
+  if (priority) p.set('priority', priority);
+  return p.toString();
+}
+
+async function loadTasks(force = false) {
+  try {
+    const r = await fetch('/api/tasks?' + filterParams());
+    const data = await r.json();
+    const hash = JSON.stringify(data);
+    if (!force && hash === lastDataHash) return;  // tidak ada perubahan
+    lastDataHash = hash;
+    allTasks = data.tasks;
+    renderBoard();
+    loadStats();
+    document.getElementById('lastSync').textContent = '· ' + new Date().toLocaleTimeString('id-ID');
+  } catch (e) { console.error('Gagal load tasks:', e); }
+}
+
+function renderBoard() {
+  const cols = { todo: [], in_progress: [], done: [] };
+  allTasks.forEach(t => cols[t.status]?.push(t));
+
+  for (const [status, tasks] of Object.entries(cols)) {
+    const el = document.getElementById('col-' + status);
+    document.getElementById('count-' + status).textContent = tasks.length;
+    el.innerHTML = tasks.length === 0
+      ? '<div class="empty-col">Seret tugas ke sini</div>'
+      : tasks.map(cardHTML).join('');
+  }
+
+  // Pasang event drag di tiap kartu
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      card.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+}
+
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function deadlineChip(t) {
+  if (!t.deadline) return '';
+  const d = new Date(t.deadline + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  const dateStr = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  let cls = '', note = '';
+  if (t.is_overdue) { cls = 'overdue'; note = ' ⚠'; }
+  else if (diff === 0) { cls = 'near'; note = ' (hari ini!)'; }
+  else if (diff === 1) { cls = 'near'; note = ' (besok)'; }
+  return `<span class="deadline-chip ${cls}">📅 ${dateStr}${note}</span>`;
+}
+
+function cardHTML(t) {
+  const prioIcon = { high: '🔴', medium: '🟡', low: '⚪' }[t.priority] || '';
+  return `
+  <div class="kanban-card ${t.is_overdue ? 'overdue' : ''}" draggable="true" data-id="${t.id}">
+    <div class="kc-title">${esc(t.title)}</div>
+    ${t.description ? `<div class="kc-desc">${esc(t.description.slice(0, 90))}${t.description.length > 90 ? '…' : ''}</div>` : ''}
+    <div class="kc-meta">
+      <span class="badge badge-${t.priority}">${prioIcon} ${t.priority_label}</span>
+      ${t.course ? `<span class="badge badge-course">📚 ${esc(t.course)}</span>` : ''}
+      ${deadlineChip(t)}
+      ${t.assignee ? `<span class="deadline-chip">👤 ${esc(t.assignee)}</span>` : ''}
+    </div>
+    <div class="kc-footer">
+      <span class="kc-comments" onclick="openComments(${t.id}, '${esc(t.title).replace(/'/g, "\\'")}')">💬 ${t.comment_count}</span>
+      <div class="kc-actions">
+        ${t.is_mine ? `
+          <a class="edit-link" href="/tasks/${t.id}/edit">Edit</a>
+          <button class="del-btn" onclick="deleteTask(${t.id})">Hapus</button>
+        ` : `<span class="deadline-chip">oleh ${esc(t.creator)}</span>`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ================= DRAG & DROP =================
+
+document.querySelectorAll('.kanban-col').forEach(col => {
+  col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+  col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+  col.addEventListener('drop', async e => {
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    const taskId = e.dataTransfer.getData('text/plain');
+    const newStatus = col.dataset.status;
+    const task = allTasks.find(t => t.id == taskId);
+    if (!task || task.status === newStatus) return;
+
+    task.status = newStatus;   // optimistic update
+    renderBoard();
+    await fetch(`/api/tasks/${taskId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    loadTasks(true);
+  });
+});
+
+// ================= ACTIONS =================
+
+async function deleteTask(id) {
+  if (!confirm('Hapus tugas ini?')) return;
+  await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  loadTasks(true);
+}
+
+// ================= KOMENTAR =================
+
+async function openComments(taskId, title) {
+  currentCommentTaskId = taskId;
+  document.getElementById('commentModalTitle').textContent = '💬 ' + title;
+  document.getElementById('commentModal').classList.add('open');
+  await refreshComments();
+}
+
+async function refreshComments() {
+  const r = await fetch(`/api/tasks/${currentCommentTaskId}/comments`);
+  const data = await r.json();
+  const list = document.getElementById('commentList');
+  list.innerHTML = data.comments.length === 0
+    ? '<div class="empty-col">Belum ada komentar — jadilah yang pertama!</div>'
+    : data.comments.map(c => `
+      <div class="comment-item">
+        <span class="comment-author">${esc(c.author)}</span>
+        <span class="comment-time">${c.created_at}</span>
+        <div class="comment-content">${esc(c.content)}</div>
+      </div>`).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+async function sendComment() {
+  const input = document.getElementById('commentInput');
+  const content = input.value.trim();
+  if (!content) return;
+  input.value = '';
+  await fetch(`/api/tasks/${currentCommentTaskId}/comments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content })
+  });
+  await refreshComments();
+  loadTasks(true);  // update comment count di kartu
+}
+
+function closeComments() {
+  document.getElementById('commentModal').classList.remove('open');
+  currentCommentTaskId = null;
+}
+document.getElementById('commentModal').addEventListener('click', e => {
+  if (e.target.id === 'commentModal') closeComments();
+});
+
+// ================= CHARTS =================
+
+let charts = {};
+const chartColors = {
+  status: ['#38bdf8', '#fbbf24', '#4ade80'],
+  priority: ['#f87171', '#fbbf24', '#94a3b8'],
+  course: ['#c084fc', '#38bdf8', '#4ade80', '#fbbf24', '#f87171', '#818cf8']
+};
+
+function textColor() {
+  return getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+}
+
+function makeChart(id, type, labels, values, colors) {
+  const ctx = document.getElementById(id);
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: textColor(), font: { size: 10 }, boxWidth: 12 } } },
+      ...(type === 'bar' ? { scales: {
+        y: { ticks: { color: textColor(), stepSize: 1 }, grid: { display: false } },
+        x: { ticks: { color: textColor(), font: { size: 9 } }, grid: { display: false } }
+      }, plugins: { legend: { display: false } } } : {})
+    }
+  });
+}
+
+async function loadStats() {
+  const r = await fetch('/api/stats');
+  const s = await r.json();
+
+  document.getElementById('statTotal').textContent = s.total;
+  document.getElementById('statCompletion').textContent = s.completion + '%';
+  document.getElementById('statOverdue').textContent = s.overdue;
+  document.getElementById('statInProgress').textContent = s.by_status.in_progress;
+
+  makeChart('chartStatus', 'doughnut',
+    ['To Do', 'In Progress', 'Done'],
+    [s.by_status.todo, s.by_status.in_progress, s.by_status.done],
+    chartColors.status);
+
+  makeChart('chartPriority', 'doughnut',
+    ['Tinggi', 'Sedang', 'Rendah'],
+    [s.by_priority.high, s.by_priority.medium, s.by_priority.low],
+    chartColors.priority);
+
+  const courseLabels = Object.keys(s.by_course);
+  makeChart('chartCourse', 'bar',
+    courseLabels.length ? courseLabels : ['(belum ada)'],
+    courseLabels.length ? Object.values(s.by_course) : [0],
+    chartColors.course);
+}
+
+// ================= FILTER & SEARCH =================
+
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadTasks(true), 300);  // debounce
+});
+document.getElementById('courseFilter').addEventListener('change', () => loadTasks(true));
+document.getElementById('priorityFilter').addEventListener('change', () => loadTasks(true));
+
+// ================= INIT & POLLING =================
+
+loadTasks(true);
+setInterval(() => loadTasks(), POLL_INTERVAL);  // real-time antar user
+</script>
+{% endblock %}

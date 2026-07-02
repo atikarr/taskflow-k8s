@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskflow-config
+  namespace: taskflow
+data:
+  MYSQL_HOST: "taskflow-mysql"
+  MYSQL_PORT: "3306"
+  MYSQL_USER: "taskflow"
+  MYSQL_DB: "taskflow"

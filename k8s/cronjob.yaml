@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: taskflow-notifier
+  namespace: taskflow
+spec:
+  schedule: "0 1 * * *"          # jam 08.00 WIB = 01.00 UTC (K8s pakai UTC)
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: notifier
+            image: taskflow-k8s:latest
+            imagePullPolicy: Never
+            command: ["python", "app/scripts/notify.py"]
+            envFrom:
+            - configMapRef:
+                name: taskflow-config
+            env:
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-secret
+                  key: mysql-password
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-secret
+                  key: telegram-bot-token

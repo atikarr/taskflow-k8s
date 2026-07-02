@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uploads-pvc
+  namespace: taskflow
+spec:
+  accessModes:
+    - ReadWriteOnce      # cukup di Minikube (1 node); multi-node butuh ReadWriteMany/object storage
+  resources:
+    requests:
+      storage: 1Gi

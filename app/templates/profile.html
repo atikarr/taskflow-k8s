@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Profil — TaskFlow K8s{% endblock %}
+{% block content %}
+<div style="padding-top: 20px; max-width: 500px; margin: 0 auto">
+
+  <div class="page-header">
+    <div class="page-title">👤 Profil Saya</div>
+    <a href="{{ url_for('tasks.dashboard') }}" class="btn btn-secondary">← Dashboard</a>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border)">
+      <div style="color: var(--muted); font-size: 0.82em; margin-bottom: 4px">Username</div>
+      <div style="font-size: 1.1em; font-weight: 600">{{ user.username }}</div>
+      <div style="color: var(--muted); font-size: 0.82em; margin-top: 8px; margin-bottom: 4px">Email</div>
+      <div>{{ user.email }}</div>
+      <div style="color: var(--muted); font-size: 0.82em; margin-top: 8px; margin-bottom: 4px">Bergabung</div>
+      <div style="color: var(--muted)">{{ user.created_at.strftime('%d %B %Y') }}</div>
+    </div>
+
+    <h3 style="margin-bottom: 12px; color: var(--blue); font-size: 0.95em">✈ Telegram Notifikasi</h3>
+    <p style="color: var(--muted); font-size: 0.85em; margin-bottom: 14px">
+      Masukkan Chat ID Telegram kamu agar bisa menerima notifikasi deadline H-1.
+      Cara dapat Chat ID: kirim pesan ke <strong>@userinfobot</strong> di Telegram.
+    </p>
+
+    <form method="POST">
+      <div class="form-group">
+        <label>Telegram Chat ID</label>
+        <input type="text" name="telegram_chat_id"
+          placeholder="Contoh: 123456789"
+          value="{{ user.telegram_chat_id or '' }}">
+      </div>
+      <button type="submit" class="btn btn-primary">Simpan</button>
+    </form>
+
+    {% if user.telegram_chat_id %}
+    <div style="margin-top: 12px; padding: 10px 12px; background: #14532d; border-radius: 6px; font-size: 0.85em; color: var(--green)">
+      ✅ Telegram terhubung — kamu akan menerima notifikasi H-1 deadline
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

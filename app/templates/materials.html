@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Materi Kuliah — TaskFlow K8s{% endblock %}
+{% block content %}
+
+<div class="page-header" style="margin-top: 16px">
+  <div class="page-title">📚 Materi Kuliah</div>
+  <button class="btn btn-primary" onclick="document.getElementById('materialForm').classList.toggle('hidden-form')">+ Upload Materi</button>
+</div>
+
+<!-- Form Upload -->
+<div class="card hidden-form" id="materialForm" style="margin-bottom: 18px">
+  <form method="POST" action="{{ url_for('materials.create') }}" enctype="multipart/form-data">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+      <div class="form-group">
+        <label>Judul Materi *</label>
+        <input type="text" name="title" placeholder="Contoh: Slide OpenStack Pertemuan 12" required>
+      </div>
+      <div class="form-group">
+        <label>Mata Kuliah</label>
+        <input type="text" name="course" placeholder="Keamanan Komputasi Awan" list="courseList">
+        <datalist id="courseList">
+          <option value="Keamanan Komputasi Awan">
+          <option value="Jaringan Komputer">
+          <option value="Kriptografi">
+        </datalist>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Deskripsi</label>
+      <textarea name="description" placeholder="Catatan singkat tentang materi ini..." style="min-height:60px"></textarea>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px">
+      <div class="form-group">
+        <label>Link Eksternal (opsional)</label>
+        <input type="url" name="link" placeholder="https://drive.google.com/...">
+      </div>
+      <div class="form-group">
+        <label>Upload File (opsional, maks 20MB)</label>
+        <input type="file" name="file" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.zip,.png,.jpg,.jpeg,.txt,.md">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Simpan Materi</button>
+  </form>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Cari materi...">
+  </div>
+  <select id="courseFilter">
+    <option value="">Semua Matkul</option>
+    {% for course in courses %}
+    <option value="{{ course }}">{{ course }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<!-- List Materi -->
+<div id="materialList" class="material-grid"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.hidden-form { display: none; }
+.material-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.material-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.mc-title { font-weight: 600; margin-bottom: 6px; }
+.mc-desc { color: var(--muted); font-size: 0.83em; margin-bottom: 10px; line-height: 1.4; }
+.mc-links { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.mc-links a { font-size: 0.82em; }
+.mc-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.75em; color: var(--muted); }
+</style>
+<script>
+function esc(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function loadMaterials() {
+  const p = new URLSearchParams();
+  const q = document.getElementById('searchInput').value.trim();
+  const course = document.getElementById('courseFilter').value;
+  if (q) p.set('q', q);
+  if (course) p.set('course', course);
+
+  const r = await fetch('/api/materials?' + p.toString());
+  const data = await r.json();
+  const el = document.getElementById('materialList');
+
+  el.innerHTML = data.materials.length === 0
+    ? '<div class="empty-col" style="grid-column: 1/-1">Belum ada materi — upload yang pertama!</div>'
+    : data.materials.map(m => `
+      <div class="material-card">
+        <div class="mc-title">${esc(m.title)}</div>
+        ${m.course ? `<span class="badge badge-course">📚 ${esc(m.course)}</span>` : ''}
+        ${m.description ? `<div class="mc-desc" style="margin-top:8px">${esc(m.description)}</div>` : ''}
+        <div class="mc-links">
+          ${m.filename ? `<a href="/materials/files/${encodeURIComponent(m.filename)}" target="_blank">📄 Buka File</a>` : ''}
+          ${m.link ? `<a href="${esc(m.link)}" target="_blank" rel="noopener">🔗 Link Eksternal</a>` : ''}
+        </div>
+        <div class="mc-footer">
+          <span>👤 ${esc(m.uploader)} · ${m.created_at}</span>
+          ${m.is_mine ? `<button class="del-btn" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1em" onclick="deleteMaterial(${m.id})">Hapus</button>` : ''}
+        </div>
+      </div>`).join('');
+}
+
+async function deleteMaterial(id) {
+  if (!confirm('Hapus materi ini?')) return;
+  await fetch('/api/materials/' + id, { method: 'DELETE' });
+  loadMaterials();
+}
+
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadMaterials, 300);
+});
+document.getElementById('courseFilter').addEventListener('change', loadMaterials);
+
+loadMaterials();
+</script>
+{% endblock %}
