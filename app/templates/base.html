@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}TaskFlow K8s{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script>
 // Terapkan tema tersimpan SEBELUM render supaya tidak flicker
@@ -25,7 +28,7 @@
     <a href="{{ url_for('auth.profile') }}">Profil</a>
     <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
     <a href="{{ url_for('auth.logout') }}" style="color: var(--red)">Keluar</a>
-    <span class="nav-user">👤 {{ current_user.username }}</span>
+    <span class="nav-user"><span class="avatar">{{ current_user.username[:2]|upper }}</span>{{ current_user.username }}</span>
   </div>
 </nav>
 {% endif %}

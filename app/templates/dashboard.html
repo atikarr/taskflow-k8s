@@ -169,7 +169,7 @@ function cardHTML(t) {
       <span class="badge badge-${t.priority}">${prioIcon} ${t.priority_label}</span>
       ${t.course ? `<span class="badge badge-course">📚 ${esc(t.course)}</span>` : ''}
       ${deadlineChip(t)}
-      ${t.assignee ? `<span class="deadline-chip">👤 ${esc(t.assignee)}</span>` : ''}
+      ${t.assignee ? `<span class="deadline-chip" style="display:inline-flex;align-items:center;gap:4px"><span class="avatar avatar-sm">${esc(t.assignee.slice(0,2).toUpperCase())}</span>${esc(t.assignee)}</span>` : ''}
     </div>
     <div class="kc-footer">
       <span class="kc-comments" onclick="openComments(${t.id}, '${esc(t.title).replace(/'/g, "\\'")}')">💬 ${t.comment_count}</span>
@@ -265,9 +265,9 @@ document.getElementById('commentModal').addEventListener('click', e => {
 
 let charts = {};
 const chartColors = {
-  status: ['#38bdf8', '#fbbf24', '#4ade80'],
-  priority: ['#f87171', '#fbbf24', '#94a3b8'],
-  course: ['#c084fc', '#38bdf8', '#4ade80', '#fbbf24', '#f87171', '#818cf8']
+  status: ['#6366f1', '#f59e0b', '#10b981'],
+  priority: ['#ef4444', '#f59e0b', '#a5b4fc'],
+  course: ['#a855f7', '#6366f1', '#d946ef', '#10b981', '#f59e0b', '#818cf8']
 };
 
 function textColor() {
